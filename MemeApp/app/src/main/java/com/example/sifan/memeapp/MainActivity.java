@@ -1,6 +1,8 @@
 package com.example.sifan.memeapp;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -8,6 +10,8 @@ import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -25,7 +29,9 @@ import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static int result_load_image = 1;
+    private static final int RESULT_LOAD_IMAGE = 1;
+    private static final int MY_PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE = 2;
+    private static final int MY_PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE = 3;
     TextView toptext;
     TextView bottomtext;
     EditText editTop;
@@ -45,17 +51,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void addImage(View view) {
-        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        startActivityForResult(intent, result_load_image);
+        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            // Permission is not granted; request permission
+            // No explanation needed; request the permission
+            ActivityCompat.requestPermissions(MainActivity.this,
+                    new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
+                    MY_PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE);
+        } else {
+            Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+            startActivityForResult(intent, RESULT_LOAD_IMAGE);
+        }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == result_load_image && resultCode == RESULT_OK && data != null) {
+        if (requestCode == RESULT_LOAD_IMAGE && resultCode == RESULT_OK && data != null) {
             Uri selectedImage = data.getData();
             String [] filePathColumn = {MediaStore.Images.Media.DATA};
+
             Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
             cursor.moveToFirst();
 
@@ -63,9 +79,10 @@ public class MainActivity extends AppCompatActivity {
             String picturePath = cursor.getString(columnIndex);
             cursor.close();
 
+            Bitmap bitmapImage = BitmapFactory.decodeFile(picturePath);
             ImageView imageView = findViewById(R.id.memeImage);
-            imageView.setImageBitmap(BitmapFactory.decodeFile(picturePath));
 
+            imageView.setImageBitmap(bitmapImage);
         }
     }
 
@@ -81,10 +98,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void saveImage (View view) {
-        View content = findViewById(R.id.relativeLayout);
-        Bitmap bitmap = getScreenshot(content);
-        String currentImage = "meme" + System.currentTimeMillis() + ".png";
-        store(bitmap, currentImage);
+        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            // Permission is not granted; request permission
+            // No explanation needed; request the permission
+            ActivityCompat.requestPermissions(MainActivity.this,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    MY_PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE);
+        } else {
+            View content = findViewById(R.id.relativeLayout);
+            Bitmap bitmap = getScreenshot(content);
+            String currentImage = "meme" + System.currentTimeMillis() + ".png";
+            store(bitmap, currentImage);
+        }
     }
 
     public void store(Bitmap bitmap, String filename) {
@@ -101,7 +127,7 @@ public class MainActivity extends AppCompatActivity {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
             fos.flush();
             fos.close();
-            Toast.makeText(this, "Image Saved", Toast.LENGTH_LONG);
+            Toast.makeText(this, "Image Saved", Toast.LENGTH_LONG).show();
         }catch (FileNotFoundException e) {
             e.printStackTrace();
         }catch (IOException e) {
